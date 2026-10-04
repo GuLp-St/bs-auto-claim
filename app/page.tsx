@@ -9,11 +9,11 @@ import {
   Play, 
   Power, 
   LogOut, 
-  HelpCircle,
-  History,
-  Gift,
-  Sparkles,
-  Gamepad2
+  HelpCircle, 
+  History, 
+  Gift, 
+  Sparkles, 
+  Gamepad2 
 } from 'lucide-react';
 
 export default function Home() {
@@ -254,74 +254,77 @@ export default function Home() {
 
       <div className="max-w-4xl mx-auto px-4 mt-8 space-y-6">
         {/* Profile Card */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
+        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+            <div className="flex items-center gap-4 min-w-0">
               {currentUser.avatar_url ? (
                 <img
                   src={currentUser.avatar_url}
                   alt="avatar"
-                  className="w-16 h-16 rounded-full border-2 border-yellow-500 object-cover"
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-yellow-500 object-cover shrink-0"
                 />
               ) : (
-                <div className="w-16 h-16 rounded-full bg-neutral-800 border-2 border-neutral-700 flex items-center justify-center font-bold text-xl text-neutral-400">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-neutral-800 border-2 border-neutral-700 flex items-center justify-center font-bold text-2xl text-neutral-400 shrink-0">
                   {currentUser.username[0]?.toUpperCase()}
                 </div>
               )}
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-black">
+
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-xl sm:text-2xl font-black text-white truncate">
                     {currentUser.brawl_name || currentUser.username}
                   </h2>
                   {currentUser.brawl_tag && (
-                    <span className="text-xs font-mono bg-neutral-800 text-neutral-400 px-2 py-0.5 rounded">
+                    <span className="text-xs font-mono bg-neutral-800 text-neutral-400 px-2 py-0.5 rounded border border-neutral-700 shrink-0">
                       {currentUser.brawl_tag}
                     </span>
                   )}
                 </div>
 
-                {currentUser.brawl_name && (
-                  <p className="text-xs text-neutral-400 flex items-center gap-1 mt-0.5">
-                    <Gamepad2 className="h-3 w-3 text-yellow-400" />
-                    In-Game Name: <span className="text-neutral-200">{currentUser.brawl_name}</span>
-                    <span className="text-neutral-600">|</span> Web Username: <span className="text-neutral-200">{currentUser.username}</span>
-                  </p>
-                )}
+                <div className="text-xs text-neutral-400 flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+                  <span className="flex items-center gap-1">
+                    <Gamepad2 className="h-3.5 w-3.5 text-yellow-400" />
+                    IGN: <strong className="text-neutral-200">{currentUser.brawl_name || 'N/A'}</strong>
+                  </span>
+                  <span className="text-neutral-600 hidden sm:inline">•</span>
+                  <span>
+                    User: <strong className="text-neutral-200">{currentUser.username}</strong>
+                  </span>
+                </div>
 
                 <div className="flex flex-wrap items-center gap-2 mt-3">
                   <span
-                    className={`text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 ${
+                    className={`text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1.5 ${
                       currentUser.token_status === 'VALID'
                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                         : currentUser.token_status === 'EXPIRED'
                         ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                        : 'bg-neutral-800 text-neutral-400'
+                        : 'bg-neutral-800 text-neutral-400 border border-neutral-700'
                     }`}
                   >
-                    {currentUser.token_status === 'VALID' && <CheckCircle2 className="h-3 w-3" />}
-                    {currentUser.token_status === 'EXPIRED' && <XCircle className="h-3 w-3" />}
+                    {currentUser.token_status === 'VALID' && <CheckCircle2 className="h-3.5 w-3.5" />}
+                    {currentUser.token_status === 'EXPIRED' && <XCircle className="h-3.5 w-3.5" />}
                     Tokens: {currentUser.token_status}
                   </span>
 
                   <span
-                    className={`text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 ${
+                    className={`text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1.5 ${
                       currentUser.is_completed_today
                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                         : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                     }`}
                   >
-                    <Clock className="h-3 w-3" />
+                    <Clock className="h-3.5 w-3.5" />
                     Today: {currentUser.is_completed_today ? 'Done' : 'Pending Claim'}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Auto-Claim Toggle Button */}
-            <div className="flex items-center gap-3">
+            <div className="shrink-0 pt-2 sm:pt-0">
               <button
                 onClick={handleToggleAutoClaim}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition duration-150 ${
+                className={`w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition duration-150 ${
                   currentUser.auto_claim_enabled
                     ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30'
                     : 'bg-neutral-800 text-neutral-400 border border-neutral-700 hover:bg-neutral-700'
@@ -334,7 +337,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Dynamic Freebie Card with Smart Action Button */}
+        {/* Freebie Preview Card */}
         <div className="bg-gradient-to-r from-neutral-900 to-neutral-900/60 border border-neutral-800 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             {todayFreebie?.imageUrl ? (
@@ -409,7 +412,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Credentials Form */}
+        {/* Credentials Form & Instructions */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-lg">Supercell Credentials</h3>
@@ -422,11 +425,75 @@ export default function Home() {
           </div>
 
           {showHelp && (
-            <div className="mb-6 bg-neutral-950 border border-neutral-800 rounded-xl p-4 text-xs text-neutral-300 space-y-2">
-              <p><strong>1.</strong> Open <a href="https://store.supercell.com/brawlstars" target="_blank" className="text-yellow-400 underline">store.supercell.com</a> on your PC browser and make sure you are logged in.</p>
-              <p><strong>2.</strong> Press <kbd className="bg-neutral-800 px-1 py-0.5 rounded">F12</kbd> to open DevTools.</p>
-              <p><strong>3.</strong> Go to the <strong>Application</strong> tab $\rightarrow$ expand <strong>Cookies</strong> $\rightarrow$ click <code className="text-yellow-400">https://store.supercell.com</code>.</p>
-              <p><strong>4.</strong> Find and copy the values for <code className="text-yellow-400">scsso_scid</code> and <code className="text-yellow-400">SESSION_COOKIE</code>.</p>
+            <div className="mb-6 bg-neutral-950 border border-neutral-800 rounded-xl p-5 text-xs text-neutral-300 space-y-4">
+              <div>
+                <h4 className="font-bold text-sm text-yellow-400 mb-2 flex items-center gap-1.5">
+                  💻 PC / Mac (Chrome, Edge, Brave)
+                </h4>
+                <ol className="space-y-1.5 list-decimal list-inside pl-1 text-neutral-300">
+                  <li>
+                    Open{' '}
+                    <a
+                      href="https://store.supercell.com/brawlstars"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-yellow-400 underline font-mono"
+                    >
+                      https://store.supercell.com/brawlstars
+                    </a>{' '}
+                    and log into your Supercell ID.
+                  </li>
+                  <li>
+                    Press <kbd className="bg-neutral-800 border border-neutral-700 px-1.5 py-0.5 rounded text-white">F12</kbd> (or right click → <strong>Inspect</strong>).
+                  </li>
+                  <li>
+                    Select the <strong>Application</strong> tab at the top (click the <strong>»</strong> double arrow if hidden).
+                  </li>
+                  <li>
+                    In the left sidebar, expand <strong>Cookies</strong> → click{' '}
+                    <code className="text-yellow-400 font-mono">https://store.supercell.com</code>.
+                  </li>
+                  <li>
+                    Copy the values of <code className="text-yellow-400 font-mono">scsso_scid</code> and{' '}
+                    <code className="text-yellow-400 font-mono">SESSION_COOKIE</code>.
+                  </li>
+                </ol>
+              </div>
+
+              <div className="border-t border-neutral-800/80 pt-3">
+                <h4 className="font-bold text-sm text-yellow-400 mb-2 flex items-center gap-1.5">
+                  📱 Mobile (iOS Safari & Android Chrome)
+                </h4>
+                <p className="text-neutral-400 mb-2">
+                  Mobile browsers hide DevTools by default. Use this 1-click JavaScript bookmarklet to reveal your cookies:
+                </p>
+                <ol className="space-y-1.5 list-decimal list-inside pl-1 text-neutral-300">
+                  <li>Bookmark any webpage on your mobile browser and name it <strong>"Get BS Cookies"</strong>.</li>
+                  <li>Edit the bookmark and paste this exact code into the URL field:
+                    <pre className="mt-1.5 bg-neutral-900 border border-neutral-800 p-2.5 rounded-lg font-mono text-[10px] text-amber-300 overflow-x-auto select-all">
+                      javascript:(function()&#123;prompt("Copy your cookies:",document.cookie);&#125;)();
+                    </pre>
+                  </li>
+                  <li>
+                    Go to{' '}
+                    <a
+                      href="https://store.supercell.com/brawlstars"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-yellow-400 underline font-mono"
+                    >
+                      https://store.supercell.com/brawlstars
+                    </a>{' '}
+                    and sign in.
+                  </li>
+                  <li>
+                    Tap your browser address bar, type <strong>"Get BS Cookies"</strong>, and tap the bookmark to run it.
+                  </li>
+                  <li>
+                    A popup dialog will appear containing both <code className="text-yellow-400 font-mono">scsso_scid</code> and <code className="text-yellow-400 font-mono">SESSION_COOKIE</code> for copying.
+                  </li>
+                </ol>
+              </div>
             </div>
           )}
 
@@ -492,7 +559,7 @@ export default function Home() {
                     <th className="pb-3 font-semibold">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-800/50">
+                <tbody className="divide-y border-neutral-800/50">
                   {history.map((h) => (
                     <tr key={h.id} className="text-neutral-300">
                       <td className="py-3 font-medium text-white">{h.reward_name}</td>
