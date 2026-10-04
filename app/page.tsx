@@ -125,7 +125,7 @@ export default function Home() {
     if (data.success) {
       setCurrentUser(data.user);
       setTodayFreebie(data.todayFreebie);
-      setTokenMsg({ type: 'success', text: 'Tokens verified! Profile and Freebie loaded.' });
+      setTokenMsg({ type: 'success', text: 'Tokens verified! Profile and freebie loaded.' });
     } else {
       setTokenMsg({ type: 'error', text: data.error || 'Validation failed.' });
     }
@@ -176,7 +176,7 @@ export default function Home() {
     );
   }
 
-  // 1. AUTH SCREEN WITH EXPLICIT SIGN IN / SIGN UP
+  // Auth Screen (Logged Out)
   if (!currentUser) {
     return (
       <main className="min-h-screen bg-neutral-950 text-white flex flex-col items-center justify-center px-4 font-sans">
@@ -227,7 +227,7 @@ export default function Home() {
     );
   }
 
-  // 2. DASHBOARD
+  // Dashboard Screen (Logged In)
   return (
     <main className="min-h-screen bg-neutral-950 text-white font-sans pb-16">
       {/* Top Header */}
@@ -253,7 +253,7 @@ export default function Home() {
       </header>
 
       <div className="max-w-4xl mx-auto px-4 mt-8 space-y-6">
-        {/* User Card: Shows both App Username and In-Game Name */}
+        {/* Profile Card */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -317,7 +317,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Quick Actions */}
+            {/* Auto-Claim Toggle Button */}
             <div className="flex items-center gap-3">
               <button
                 onClick={handleToggleAutoClaim}
@@ -330,58 +330,84 @@ export default function Home() {
                 <Power className="h-3.5 w-3.5" />
                 Auto-Claim: {currentUser.auto_claim_enabled ? 'ON' : 'OFF'}
               </button>
-              <button
-                onClick={handleClaimNow}
-                disabled={claiming || !currentUser.session_cookie}
-                className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-black px-4 py-2.5 rounded-xl font-bold text-xs transition duration-150"
-              >
-                <Play className="h-3.5 w-3.5 fill-black" />
-                {claiming ? 'Claiming...' : 'Claim Now'}
-              </button>
             </div>
           </div>
         </div>
 
-        {/* Today's Freebie Preview Card */}
-        {todayFreebie && (
-          <div className="bg-gradient-to-r from-neutral-900 to-neutral-900/60 border border-neutral-800 rounded-2xl p-6 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {todayFreebie.imageUrl ? (
-                <img
-                  src={todayFreebie.imageUrl}
-                  alt={todayFreebie.title}
-                  className="w-16 h-16 object-contain bg-neutral-950/80 rounded-xl p-2 border border-neutral-800"
-                />
-              ) : (
-                <div className="w-16 h-16 bg-neutral-950 rounded-xl flex items-center justify-center">
-                  <Gift className="h-8 w-8 text-yellow-400" />
-                </div>
-              )}
-              <div>
-                <span className="text-[11px] uppercase tracking-wider text-yellow-400 font-bold flex items-center gap-1">
-                  <Sparkles className="h-3 w-3" /> Today's Freebie
-                </span>
-                <h4 className="text-lg font-bold text-white mt-0.5">{todayFreebie.title}</h4>
-                <p className="text-xs text-neutral-400 mt-1">
-                  Status: {todayFreebie.isClaimed ? (
-                    <span className="text-emerald-400 font-semibold">Claimed</span>
-                  ) : (
-                    <span className="text-amber-400 font-semibold">Ready to Claim</span>
-                  )}
-                </p>
+        {/* Dynamic Freebie Card with Smart Action Button */}
+        <div className="bg-gradient-to-r from-neutral-900 to-neutral-900/60 border border-neutral-800 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            {todayFreebie?.imageUrl ? (
+              <img
+                src={todayFreebie.imageUrl}
+                alt={todayFreebie.title}
+                className="w-16 h-16 object-contain bg-neutral-950/80 rounded-xl p-2 border border-neutral-800"
+              />
+            ) : (
+              <div className="w-16 h-16 bg-neutral-950 rounded-xl flex items-center justify-center border border-neutral-800 text-neutral-500">
+                <Gift className="h-8 w-8 text-yellow-400" />
+              </div>
+            )}
+            
+            <div>
+              <span className="text-[11px] uppercase tracking-wider text-yellow-400 font-bold flex items-center gap-1">
+                <Sparkles className="h-3 w-3" /> Today's Freebie
+              </span>
+              <h4 className="text-lg font-bold text-white mt-0.5">
+                {todayFreebie ? todayFreebie.title : 'No Freebie Detected'}
+              </h4>
+              <div className="text-xs text-neutral-400 mt-0.5">
+                {!currentUser.session_cookie ? (
+                  <span className="text-rose-400 font-medium">Add credentials below to detect freebies</span>
+                ) : todayFreebie?.isClaimed || currentUser.is_completed_today ? (
+                  <span className="text-emerald-400 font-medium flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> Claimed for today
+                  </span>
+                ) : todayFreebie ? (
+                  <span className="text-amber-400 font-medium flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> Unclaimed reward waiting
+                  </span>
+                ) : (
+                  <span className="text-neutral-500">Shop resets daily at 4:00 PM MYT</span>
+                )}
               </div>
             </div>
-            {!todayFreebie.isClaimed && (
+          </div>
+
+          <div>
+            {!currentUser.session_cookie ? (
+              <button
+                disabled
+                className="w-full sm:w-auto bg-neutral-800 text-neutral-500 font-semibold text-xs px-5 py-2.5 rounded-xl cursor-not-allowed border border-neutral-700/50"
+              >
+                Credentials Missing
+              </button>
+            ) : todayFreebie?.isClaimed || currentUser.is_completed_today ? (
+              <button
+                disabled
+                className="w-full sm:w-auto bg-neutral-800/80 text-emerald-400 font-semibold text-xs px-5 py-2.5 rounded-xl cursor-not-allowed border border-emerald-500/20 flex items-center justify-center gap-1.5"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" /> Claimed
+              </button>
+            ) : todayFreebie ? (
               <button
                 onClick={handleClaimNow}
                 disabled={claiming}
-                className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-xs px-4 py-2.5 rounded-xl transition duration-150 disabled:opacity-50"
+                className="w-full sm:w-auto bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-xs px-5 py-2.5 rounded-xl transition duration-150 disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-lg shadow-yellow-500/10"
               >
-                Claim This
+                <Play className="h-3.5 w-3.5 fill-black" />
+                {claiming ? 'Claiming...' : `Claim ${todayFreebie.title}`}
+              </button>
+            ) : (
+              <button
+                disabled
+                className="w-full sm:w-auto bg-neutral-800 text-neutral-500 font-semibold text-xs px-5 py-2.5 rounded-xl cursor-not-allowed border border-neutral-700/50"
+              >
+                All Done
               </button>
             )}
           </div>
-        )}
+        </div>
 
         {/* Credentials Form */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
