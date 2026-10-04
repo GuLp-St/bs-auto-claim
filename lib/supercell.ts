@@ -8,7 +8,14 @@ const HEADERS = {
   Referer: 'https://store.supercell.com/brawlstars',
 };
 
-// Check if credentials are valid and fetch profile details
+export interface FreebiePreview {
+  sku: string;
+  title: string;
+  imageUrl: string;
+  isClaimed: boolean;
+}
+
+// 1. Validate tokens & extract in-game username + avatar + active freebie preview
 export async function validateTokens(scsso_scid: string, session_cookie: string) {
   try {
     const res = await fetch('https://store.supercell.com/brawlstars', {
@@ -25,26 +32,52 @@ export async function validateTokens(scsso_scid: string, session_cookie: string)
 
     const html = await res.text();
     const $ = cheerio.load(html);
-    const accountTag = $('noscript#account').attr('data-account');
 
+    // Extract Account Info
+    const accountTag = $('noscript#account').attr('data-account');
     if (!accountTag) return { valid: false };
 
     const accountData = JSON.parse(accountTag);
     const profile = accountData.profile || {};
     const bsApp = profile.applications?.find((a: any) => a.application === 'brawlstars');
 
+    // Extract Today's Freebie Offer & Image
+    let todayFreebie: FreebiePreview | null = null;
+    const stateTag = $('noscript#state').attr('data-state');
+    if (stateTag) {
+      const stateData = JSON.parse(stateTag);
+      const offers = stateData.props?.offers || [];
+      for (const item of offers) {
+        const offer = item.data?.data;
+        if (!offer) continue;
+
+        const isFree = offer.isFree || offer.id?.includes('specialoffertier0.free');
+        if (isFree) {
+          const content = offer.contents?.[0];
+          todayFreebie = {
+            sku: offer.id,
+            title: content?.title?.en || offer.title?.cardHeading?.en || 'Daily Freebie',
+            imageUrl: content?.assets?.still?.path || offer.images?.[0]?.url || '',
+            isClaimed: (offer.quota?.consumed || 0) >= (offer.quota?.limit || 1),
+          };
+          break;
+        }
+      }
+    }
+
     return {
       valid: true,
-      brawlName: bsApp?.account?.name || profile.profile?.name || 'Brawler',
+      brawlName: bsApp?.account?.name || profile.name || 'Brawler',
       brawlTag: bsApp?.account?.tag || '',
       avatarUrl: profile.profile?.image?.url || '',
+      todayFreebie,
     };
   } catch {
     return { valid: false };
   }
 }
 
-// Multi-claim loop: claims until no freebies remain
+// 2. Multi-claim execution loop
 export async function executeClaimForUser(user: any) {
   let currentSessionCookie = user.session_cookie;
   const claimedRewards: string[] = [];
@@ -58,7 +91,7 @@ export async function executeClaimForUser(user: any) {
       cache: 'no-store',
     });
 
-    // Check for cookie rotation
+    // Check for token rotation
     const setCookie = res.headers.get('set-cookie');
     if (setCookie && setCookie.includes('SESSION_COOKIE=')) {
       const match = setCookie.match(/SESSION_COOKIE=([^;]+)/);
@@ -72,23 +105,18 @@ export async function executeClaimForUser(user: any) {
     }
 
     if (res.status === 401) {
-      await supabaseAdmin
-        .from('users')
-        .update({ token_status: 'EXPIRED' })
-        .eq('id', user.id);
+      await supabaseAdmin.from('users').update({ token_status: 'EXPIRED' }).eq('id', user.id);
       return { success: false, reason: 'EXPIRED', claimed: claimedRewards };
     }
 
     const html = await res.text();
     const $ = cheerio.load(html);
     const stateTag = $('noscript#state').attr('data-state');
-
     if (!stateTag) break;
 
     const state = JSON.parse(stateTag);
     const offers = state.props?.offers || [];
 
-    // Find unclaimed freebie
     let targetSku: string | null = null;
     let rewardTitle = 'Daily Gift';
 
@@ -110,24 +138,17 @@ export async function executeClaimForUser(user: any) {
       }
     }
 
-    if (!targetSku) {
-      // No more freebies remaining
-      break;
-    }
+    if (!targetSku) break;
 
-    // Attempt claim
-    const claimRes = await fetch(
-      'https://store.supercell.com/api/v4/brawlstars/offer/claim',
-      {
-        method: 'POST',
-        headers: {
-          ...HEADERS,
-          'Content-Type': 'application/json',
-          Cookie: `scsso_scid=${user.scsso_scid}; SESSION_COOKIE=${currentSessionCookie}`,
-        },
-        body: JSON.stringify({ skus: [targetSku] }),
-      }
-    );
+    const claimRes = await fetch('https://store.supercell.com/api/v4/brawlstars/offer/claim', {
+      method: 'POST',
+      headers: {
+        ...HEADERS,
+        'Content-Type': 'application/json',
+        Cookie: `scsso_scid=${user.scsso_scid}; SESSION_COOKIE=${currentSessionCookie}`,
+      },
+      body: JSON.stringify({ skus: [targetSku] }),
+    });
 
     if (claimRes.status === 200 || claimRes.status === 204) {
       claimedRewards.push(rewardTitle);
@@ -142,7 +163,6 @@ export async function executeClaimForUser(user: any) {
     }
   }
 
-  // Mark account completed
   await supabaseAdmin
     .from('users')
     .update({

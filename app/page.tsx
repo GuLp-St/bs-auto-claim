@@ -9,41 +9,45 @@ import {
   Play, 
   Power, 
   LogOut, 
-  ShieldAlert, 
   HelpCircle,
   History,
-  Gift
+  Gift,
+  Sparkles,
+  Gamepad2
 } from 'lucide-react';
 
 export default function Home() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [usernameInput, setUsernameInput] = useState('');
-  
+  const [authError, setAuthError] = useState('');
+
   // Token state
   const [scidInput, setScidInput] = useState('');
   const [sessionInput, setSessionInput] = useState('');
   const [savingTokens, setSavingTokens] = useState(false);
   const [tokenMsg, setTokenMsg] = useState<{ type: string; text: string } | null>(null);
 
-  // Actions state
-  const [claiming, setClaiming] = useState(false);
+  // Reward and History state
+  const [todayFreebie, setTodayFreebie] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
-  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [claiming, setClaiming] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
-  // Fetch logged in session
   async function loadUser() {
     setLoading(true);
     try {
       const res = await fetch('/api/auth');
+      if (!res.ok) {
+        setCurrentUser(null);
+        return;
+      }
       const data = await res.json();
       setCurrentUser(data.user);
       if (data.user) {
         setScidInput(data.user.scsso_scid || '');
         setSessionInput(data.user.session_cookie || '');
-        loadHistory();
-        if (data.user.is_admin) loadAdminUsers();
+        loadUserDashboardData();
       }
     } catch (err) {
       console.error(err);
@@ -52,21 +56,12 @@ export default function Home() {
     }
   }
 
-  async function loadHistory() {
+  async function loadUserDashboardData() {
     try {
       const res = await fetch('/api/user');
       const data = await res.json();
       setHistory(data.history || []);
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  async function loadAdminUsers() {
-    try {
-      const res = await fetch('/api/admin');
-      const data = await res.json();
-      setAdminUsers(data.users || []);
+      setTodayFreebie(data.todayFreebie || null);
     } catch (err) {
       console.error(err);
     }
@@ -76,15 +71,17 @@ export default function Home() {
     loadUser();
   }, []);
 
-  // Login handler
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault();
-    if (!usernameInput.trim()) return;
+  async function handleAuth(action: 'signin' | 'signup') {
+    setAuthError('');
+    if (!usernameInput.trim()) {
+      setAuthError('Please enter a username.');
+      return;
+    }
 
     const res = await fetch('/api/auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'login', username: usernameInput }),
+      body: JSON.stringify({ action, username: usernameInput }),
     });
     const data = await res.json();
 
@@ -92,14 +89,12 @@ export default function Home() {
       setCurrentUser(data.user);
       setScidInput(data.user.scsso_scid || '');
       setSessionInput(data.user.session_cookie || '');
-      loadHistory();
-      if (data.user.is_admin) loadAdminUsers();
+      loadUserDashboardData();
     } else {
-      alert(data.error || 'Failed to login');
+      setAuthError(data.error || 'Authentication failed');
     }
   }
 
-  // Logout handler
   async function handleLogout() {
     await fetch('/api/auth', {
       method: 'POST',
@@ -107,9 +102,9 @@ export default function Home() {
       body: JSON.stringify({ action: 'logout' }),
     });
     setCurrentUser(null);
+    setTodayFreebie(null);
   }
 
-  // Save tokens
   async function handleSaveTokens(e: React.FormEvent) {
     e.preventDefault();
     setSavingTokens(true);
@@ -129,13 +124,13 @@ export default function Home() {
 
     if (data.success) {
       setCurrentUser(data.user);
-      setTokenMsg({ type: 'success', text: 'Tokens verified and saved successfully!' });
+      setTodayFreebie(data.todayFreebie);
+      setTokenMsg({ type: 'success', text: 'Tokens verified! Profile and Freebie loaded.' });
     } else {
       setTokenMsg({ type: 'error', text: data.error || 'Validation failed.' });
     }
   }
 
-  // Toggle Auto Claim
   async function handleToggleAutoClaim() {
     const nextState = !currentUser.auto_claim_enabled;
     const res = await fetch('/api/user', {
@@ -147,7 +142,6 @@ export default function Home() {
     if (data.user) setCurrentUser(data.user);
   }
 
-  // Manual Claim Now
   async function handleClaimNow() {
     setClaiming(true);
     const res = await fetch('/api/user', {
@@ -168,7 +162,6 @@ export default function Home() {
     loadUser();
   }
 
-  // Delete Account
   async function handleDeleteAccount() {
     if (!confirm('Are you sure you want to delete your account and saved tokens?')) return;
     await fetch('/api/user', { method: 'DELETE' });
@@ -183,7 +176,7 @@ export default function Home() {
     );
   }
 
-  // Auth Screen
+  // 1. AUTH SCREEN WITH EXPLICIT SIGN IN / SIGN UP
   if (!currentUser) {
     return (
       <main className="min-h-screen bg-neutral-950 text-white flex flex-col items-center justify-center px-4 font-sans">
@@ -196,7 +189,7 @@ export default function Home() {
             Auto-claim daily store gifts for Brawl Stars
           </p>
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <div className="space-y-4">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-1">
                 Enter Username
@@ -207,25 +200,37 @@ export default function Home() {
                 onChange={(e) => setUsernameInput(e.target.value)}
                 placeholder="e.g. siangyup"
                 className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-white placeholder-neutral-600 focus:outline-none focus:border-yellow-500"
-                required
               />
             </div>
-            <button
-              type="submit"
-              className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-4 rounded-xl transition duration-150"
-            >
-              Enter / Register
-            </button>
-          </form>
+
+            {authError && <p className="text-xs text-rose-400">{authError}</p>}
+
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => handleAuth('signin')}
+                className="bg-neutral-800 hover:bg-neutral-700 text-white font-bold py-3 px-4 rounded-xl transition duration-150 text-sm"
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAuth('signup')}
+                className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-4 rounded-xl transition duration-150 text-sm"
+              >
+                Sign Up
+              </button>
+            </div>
+          </div>
         </div>
       </main>
     );
   }
 
-  // Dashboard Screen
+  // 2. DASHBOARD
   return (
     <main className="min-h-screen bg-neutral-950 text-white font-sans pb-16">
-      {/* Top Bar */}
+      {/* Top Header */}
       <header className="border-b border-neutral-800 bg-neutral-900/50 backdrop-blur sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -234,7 +239,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-4">
             <span className="text-xs text-neutral-400">
-              User: <strong className="text-white">{currentUser.username}</strong>
+              Web User: <strong className="text-white">{currentUser.username}</strong>
             </span>
             <button
               onClick={handleLogout}
@@ -248,7 +253,7 @@ export default function Home() {
       </header>
 
       <div className="max-w-4xl mx-auto px-4 mt-8 space-y-6">
-        {/* Profile & Status Card */}
+        {/* User Card: Shows both App Username and In-Game Name */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -256,24 +261,34 @@ export default function Home() {
                 <img
                   src={currentUser.avatar_url}
                   alt="avatar"
-                  className="w-14 h-14 rounded-full border-2 border-yellow-500 object-cover"
+                  className="w-16 h-16 rounded-full border-2 border-yellow-500 object-cover"
                 />
               ) : (
-                <div className="w-14 h-14 rounded-full bg-neutral-800 border-2 border-neutral-700 flex items-center justify-center font-bold text-xl text-neutral-400">
+                <div className="w-16 h-16 rounded-full bg-neutral-800 border-2 border-neutral-700 flex items-center justify-center font-bold text-xl text-neutral-400">
                   {currentUser.username[0]?.toUpperCase()}
                 </div>
               )}
               <div>
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  {currentUser.brawl_name || currentUser.username}
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-black">
+                    {currentUser.brawl_name || currentUser.username}
+                  </h2>
                   {currentUser.brawl_tag && (
                     <span className="text-xs font-mono bg-neutral-800 text-neutral-400 px-2 py-0.5 rounded">
                       {currentUser.brawl_tag}
                     </span>
                   )}
-                </h2>
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  {/* Token Status Badge */}
+                </div>
+
+                {currentUser.brawl_name && (
+                  <p className="text-xs text-neutral-400 flex items-center gap-1 mt-0.5">
+                    <Gamepad2 className="h-3 w-3 text-yellow-400" />
+                    In-Game Name: <span className="text-neutral-200">{currentUser.brawl_name}</span>
+                    <span className="text-neutral-600">|</span> Web Username: <span className="text-neutral-200">{currentUser.username}</span>
+                  </p>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2 mt-3">
                   <span
                     className={`text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 ${
                       currentUser.token_status === 'VALID'
@@ -288,7 +303,6 @@ export default function Home() {
                     Tokens: {currentUser.token_status}
                   </span>
 
-                  {/* Today's Claim Status */}
                   <span
                     className={`text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 ${
                       currentUser.is_completed_today
@@ -328,6 +342,47 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Today's Freebie Preview Card */}
+        {todayFreebie && (
+          <div className="bg-gradient-to-r from-neutral-900 to-neutral-900/60 border border-neutral-800 rounded-2xl p-6 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {todayFreebie.imageUrl ? (
+                <img
+                  src={todayFreebie.imageUrl}
+                  alt={todayFreebie.title}
+                  className="w-16 h-16 object-contain bg-neutral-950/80 rounded-xl p-2 border border-neutral-800"
+                />
+              ) : (
+                <div className="w-16 h-16 bg-neutral-950 rounded-xl flex items-center justify-center">
+                  <Gift className="h-8 w-8 text-yellow-400" />
+                </div>
+              )}
+              <div>
+                <span className="text-[11px] uppercase tracking-wider text-yellow-400 font-bold flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" /> Today's Freebie
+                </span>
+                <h4 className="text-lg font-bold text-white mt-0.5">{todayFreebie.title}</h4>
+                <p className="text-xs text-neutral-400 mt-1">
+                  Status: {todayFreebie.isClaimed ? (
+                    <span className="text-emerald-400 font-semibold">Claimed</span>
+                  ) : (
+                    <span className="text-amber-400 font-semibold">Ready to Claim</span>
+                  )}
+                </p>
+              </div>
+            </div>
+            {!todayFreebie.isClaimed && (
+              <button
+                onClick={handleClaimNow}
+                disabled={claiming}
+                className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-xs px-4 py-2.5 rounded-xl transition duration-150 disabled:opacity-50"
+              >
+                Claim This
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Credentials Form */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-4">
@@ -344,7 +399,7 @@ export default function Home() {
             <div className="mb-6 bg-neutral-950 border border-neutral-800 rounded-xl p-4 text-xs text-neutral-300 space-y-2">
               <p><strong>1.</strong> Open <a href="https://store.supercell.com/brawlstars" target="_blank" className="text-yellow-400 underline">store.supercell.com</a> on your PC browser and make sure you are logged in.</p>
               <p><strong>2.</strong> Press <kbd className="bg-neutral-800 px-1 py-0.5 rounded">F12</kbd> to open DevTools.</p>
-              <p><strong>3.</strong> Go to the <strong>Application</strong> tab $\rightarrow$ expand <strong>Cookies</strong> on the left $\rightarrow$ click <code className="text-yellow-400">https://store.supercell.com</code>.</p>
+              <p><strong>3.</strong> Go to the <strong>Application</strong> tab $\rightarrow$ expand <strong>Cookies</strong> $\rightarrow$ click <code className="text-yellow-400">https://store.supercell.com</code>.</p>
               <p><strong>4.</strong> Find and copy the values for <code className="text-yellow-400">scsso_scid</code> and <code className="text-yellow-400">SESSION_COOKIE</code>.</p>
             </div>
           )}
@@ -435,7 +490,7 @@ export default function Home() {
           )}
         </div>
 
-        {/* Delete Account */}
+        {/* Footer */}
         <div className="pt-4 flex justify-between items-center text-xs text-neutral-500">
           <span>Resets daily at 4:00 PM Malaysia Time (08:00 UTC)</span>
           <button

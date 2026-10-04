@@ -13,14 +13,12 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { action } = body;
 
-    // Save & Validate Tokens
     if (action === 'save_tokens') {
       const { scsso_scid, session_cookie } = body;
       if (!scsso_scid || !session_cookie) {
         return NextResponse.json({ error: 'Both tokens are required.' }, { status: 400 });
       }
 
-      // Check validity against Supercell store
       const validation = await validateTokens(scsso_scid, session_cookie);
       if (!validation.valid) {
         return NextResponse.json(
@@ -45,10 +43,13 @@ export async function POST(req: Request) {
         .single();
 
       if (error) throw error;
-      return NextResponse.json({ success: true, user: updatedUser });
+      return NextResponse.json({ 
+        success: true, 
+        user: updatedUser, 
+        todayFreebie: validation.todayFreebie 
+      });
     }
 
-    // Toggle Auto-Claim
     if (action === 'toggle_autoclaim') {
       const { enabled } = body;
       const { data: updatedUser, error } = await supabaseAdmin
@@ -62,7 +63,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, user: updatedUser });
     }
 
-    // Manual Claim Now
     if (action === 'claim_now') {
       const { data: user } = await supabaseAdmin
         .from('users')
@@ -84,13 +84,20 @@ export async function POST(req: Request) {
   }
 }
 
-// Fetch Claim History
 export async function GET() {
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // 1. Get user profile
+  const { data: user } = await supabaseAdmin
+    .from('users')
+    .select('*')
+    .eq('id', session.userId)
+    .single();
+
+  // 2. Get claim history
   const { data: history } = await supabaseAdmin
     .from('claim_history')
     .select('*')
@@ -98,10 +105,21 @@ export async function GET() {
     .order('claimed_at', { ascending: false })
     .limit(20);
 
-  return NextResponse.json({ history: history || [] });
+  // 3. Get live preview of today's freebie if tokens exist
+  let todayFreebie = null;
+  if (user?.scsso_scid && user?.session_cookie) {
+    const val = await validateTokens(user.scsso_scid, user.session_cookie);
+    if (val.valid) {
+      todayFreebie = val.todayFreebie;
+    }
+  }
+
+  return NextResponse.json({
+    history: history || [],
+    todayFreebie,
+  });
 }
 
-// Delete Account
 export async function DELETE() {
   const session = await getSession();
   if (!session) {
