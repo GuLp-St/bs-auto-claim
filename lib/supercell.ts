@@ -15,6 +15,26 @@ export interface FreebiePreview {
   isClaimed: boolean;
 }
 
+// Formats the reward title to include the amount (e.g., "150 Bling", "75 Coins", "COFFIN BOX")
+function getFormattedRewardTitle(offer: any): string {
+  const content = offer.contents?.[0];
+  const rawTitle =
+    content?.title?.en ||
+    offer.title?.cardHeading?.en ||
+    'Daily Freebie';
+
+  const amount =
+    content?.amount ??
+    (offer.title?.cardSubheading?.en ? Number(offer.title.cardSubheading.en) : null);
+
+  // If amount is greater than 1 and not already prefixed in the title, prepend it
+  if (amount && amount > 1 && !/^\d+/.test(rawTitle)) {
+    return `${amount} ${rawTitle}`;
+  }
+
+  return rawTitle;
+}
+
 // 1. Validate tokens & extract in-game username + avatar + active freebie preview
 export async function validateTokens(scsso_scid: string, session_cookie: string) {
   try {
@@ -56,7 +76,7 @@ export async function validateTokens(scsso_scid: string, session_cookie: string)
           const content = offer.contents?.[0];
           todayFreebie = {
             sku: offer.id,
-            title: content?.title?.en || offer.title?.cardHeading?.en || 'Daily Freebie',
+            title: getFormattedRewardTitle(offer),
             imageUrl: content?.assets?.still?.path || offer.images?.[0]?.url || '',
             isClaimed: (offer.quota?.consumed || 0) >= (offer.quota?.limit || 1),
           };
@@ -130,10 +150,7 @@ export async function executeClaimForUser(user: any) {
 
       if (isFree && consumed < limit) {
         targetSku = offer.id;
-        rewardTitle =
-          offer.title?.cardHeading?.en ||
-          offer.contents?.[0]?.title?.en ||
-          'Daily Reward';
+        rewardTitle = getFormattedRewardTitle(offer);
         break;
       }
     }
