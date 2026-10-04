@@ -13,7 +13,9 @@ import {
   History, 
   Gift, 
   Sparkles, 
-  Gamepad2 
+  Gamepad2,
+  ShieldCheck,
+  Users
 } from 'lucide-react';
 
 export default function Home() {
@@ -28,9 +30,10 @@ export default function Home() {
   const [savingTokens, setSavingTokens] = useState(false);
   const [tokenMsg, setTokenMsg] = useState<{ type: string; text: string } | null>(null);
 
-  // Reward and History state
+  // Reward, History, and Admin state
   const [todayFreebie, setTodayFreebie] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
   const [claiming, setClaiming] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
@@ -48,6 +51,9 @@ export default function Home() {
         setScidInput(data.user.scsso_scid || '');
         setSessionInput(data.user.session_cookie || '');
         loadUserDashboardData();
+        if (data.user.is_admin) {
+          loadAdminUsers();
+        }
       }
     } catch (err) {
       console.error(err);
@@ -62,6 +68,16 @@ export default function Home() {
       const data = await res.json();
       setHistory(data.history || []);
       setTodayFreebie(data.todayFreebie || null);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function loadAdminUsers() {
+    try {
+      const res = await fetch('/api/admin');
+      const data = await res.json();
+      setAdminUsers(data.users || []);
     } catch (err) {
       console.error(err);
     }
@@ -90,6 +106,9 @@ export default function Home() {
       setScidInput(data.user.scsso_scid || '');
       setSessionInput(data.user.session_cookie || '');
       loadUserDashboardData();
+      if (data.user.is_admin) {
+        loadAdminUsers();
+      }
     } else {
       setAuthError(data.error || 'Authentication failed');
     }
@@ -103,6 +122,7 @@ export default function Home() {
     });
     setCurrentUser(null);
     setTodayFreebie(null);
+    setAdminUsers([]);
   }
 
   async function handleSaveTokens(e: React.FormEvent) {
@@ -160,6 +180,26 @@ export default function Home() {
       alert(`Failed: ${data.reason || 'Check token validity'}`);
     }
     loadUser();
+  }
+
+  async function handleAdminAction(action: 'delete_user' | 'claim_for_user', targetUserId: string) {
+    if (action === 'delete_user' && !confirm('Are you sure you want to delete this user?')) return;
+
+    const res = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, userId: targetUserId }),
+    });
+    const data = await res.json();
+
+    if (data.success || data.claimed) {
+      if (action === 'claim_for_user') {
+        alert(data.claimed?.length ? `Claimed: ${data.claimed.join(', ')}` : 'No items to claim.');
+      }
+      loadAdminUsers();
+    } else {
+      alert(data.error || data.reason || 'Action failed.');
+    }
   }
 
   async function handleDeleteAccount() {
@@ -465,33 +505,13 @@ export default function Home() {
                   📱 Mobile (iOS Safari & Android Chrome)
                 </h4>
                 <p className="text-neutral-400 mb-2">
-                  Mobile browsers hide DevTools by default. Use this 1-click JavaScript bookmarklet to reveal your cookies:
+                  Note: Supercell flags <code className="text-yellow-400 font-mono">SESSION_COOKIE</code> as <em>HttpOnly</em>. For the cleanest mobile workflow, use Kiwi Browser / Firefox with the <em>Cookie-Editor</em> extension, or copy it directly from PC DevTools.
                 </p>
                 <ol className="space-y-1.5 list-decimal list-inside pl-1 text-neutral-300">
-                  <li>Bookmark any webpage on your mobile browser and name it <strong>"Get BS Cookies"</strong>.</li>
-                  <li>Edit the bookmark and paste this exact code into the URL field:
-                    <pre className="mt-1.5 bg-neutral-900 border border-neutral-800 p-2.5 rounded-lg font-mono text-[10px] text-amber-300 overflow-x-auto select-all">
-                      javascript:(function()&#123;prompt("Copy your cookies:",document.cookie);&#125;)();
-                    </pre>
-                  </li>
-                  <li>
-                    Go to{' '}
-                    <a
-                      href="https://store.supercell.com/brawlstars"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-yellow-400 underline font-mono"
-                    >
-                      https://store.supercell.com/brawlstars
-                    </a>{' '}
-                    and sign in.
-                  </li>
-                  <li>
-                    Tap your browser address bar, type <strong>"Get BS Cookies"</strong>, and tap the bookmark to run it.
-                  </li>
-                  <li>
-                    A popup dialog will appear containing both <code className="text-yellow-400 font-mono">scsso_scid</code> and <code className="text-yellow-400 font-mono">SESSION_COOKIE</code> for copying.
-                  </li>
+                  <li>Open Kiwi Browser or Firefox on Android (or use PC DevTools).</li>
+                  <li>Log into <code className="text-yellow-400 font-mono">store.supercell.com/brawlstars</code>.</li>
+                  <li>Open your Cookie extension or DevTools storage panel.</li>
+                  <li>Copy both <code className="text-yellow-400 font-mono">scsso_scid</code> and <code className="text-yellow-400 font-mono">SESSION_COOKIE</code> into the fields below.</li>
                 </ol>
               </div>
             </div>
@@ -541,6 +561,101 @@ export default function Home() {
           </form>
         </div>
 
+        {/* Admin User Management Panel (Only visible to admins) */}
+        {currentUser.is_admin && (
+          <div className="bg-neutral-900 border border-yellow-500/30 rounded-2xl p-6 shadow-lg shadow-yellow-500/5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-lg flex items-center gap-2 text-white">
+                <ShieldCheck className="h-5 w-5 text-yellow-400" />
+                User Management
+                <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full border border-yellow-500/30 font-semibold">
+                  Admin Panel
+                </span>
+              </h3>
+              <span className="text-xs text-neutral-400 flex items-center gap-1">
+                <Users className="h-3.5 w-3.5" /> Total Accounts: {adminUsers.length}
+              </span>
+            </div>
+
+            {adminUsers.length === 0 ? (
+              <p className="text-neutral-500 text-xs py-4 text-center">No registered accounts found.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-neutral-800 text-neutral-400">
+                      <th className="pb-3 font-semibold">User / IGN</th>
+                      <th className="pb-3 font-semibold">Tokens</th>
+                      <th className="pb-3 font-semibold">Today</th>
+                      <th className="pb-3 font-semibold">Auto-Claim</th>
+                      <th className="pb-3 font-semibold text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-800/50">
+                    {adminUsers.map((u) => (
+                      <tr key={u.id} className="text-neutral-300">
+                        <td className="py-3">
+                          <p className="font-bold text-white">{u.username}</p>
+                          <p className="text-[11px] text-neutral-400">
+                            {u.brawl_name ? `${u.brawl_name} (${u.brawl_tag || ''})` : 'No IGN linked'}
+                          </p>
+                        </td>
+                        <td className="py-3">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                              u.token_status === 'VALID'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                : u.token_status === 'EXPIRED'
+                                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                : 'bg-neutral-800 text-neutral-400'
+                            }`}
+                          >
+                            {u.token_status || 'EMPTY'}
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                              u.is_completed_today
+                                ? 'bg-emerald-500/10 text-emerald-400'
+                                : 'bg-amber-500/10 text-amber-400'
+                            }`}
+                          >
+                            {u.is_completed_today ? 'Done' : 'Pending'}
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <span className={u.auto_claim_enabled ? 'text-emerald-400 font-semibold' : 'text-neutral-500'}>
+                            {u.auto_claim_enabled ? 'ON' : 'OFF'}
+                          </span>
+                        </td>
+                        <td className="py-3 text-right space-x-2">
+                          <button
+                            onClick={() => handleAdminAction('claim_for_user', u.id)}
+                            className="bg-neutral-800 hover:bg-neutral-700 text-yellow-400 px-2.5 py-1 rounded font-medium transition text-[11px]"
+                            title="Force Claim for this user"
+                          >
+                            Claim
+                          </button>
+                          {u.username !== currentUser.username && (
+                            <button
+                              onClick={() => handleAdminAction('delete_user', u.id)}
+                              className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 px-2.5 py-1 rounded font-medium transition text-[11px] border border-rose-500/20"
+                              title="Delete user"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Claim History Table */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
           <h3 className="font-bold text-lg flex items-center gap-2 mb-4">
@@ -559,7 +674,7 @@ export default function Home() {
                     <th className="pb-3 font-semibold">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y border-neutral-800/50">
+                <tbody className="divide-y divide-neutral-800/50">
                   {history.map((h) => (
                     <tr key={h.id} className="text-neutral-300">
                       <td className="py-3 font-medium text-white">{h.reward_name}</td>
